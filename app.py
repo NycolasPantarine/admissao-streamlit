@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
-import os
-import zipfile
 import smtplib
+import zipfile
 from email.message import EmailMessage
 from datetime import datetime
 from io import BytesIO
@@ -53,7 +52,10 @@ with st.form("form_admissao"):
     cpf = st.text_input("CPF * (somente números)")
     data_nasc = st.date_input("Data de Nascimento *")
     sexo = st.selectbox("Sexo *", ["", "Masculino", "Feminino", "Outro"])
-    estado_civil = st.selectbox("Estado Civil *", ["", "Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)"])
+    estado_civil = st.selectbox(
+        "Estado Civil *",
+        ["", "Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)"]
+    )
     email_pessoal = st.text_input("E-mail Pessoal *")
     celular = st.text_input("Celular *")
 
@@ -64,9 +66,18 @@ with st.form("form_admissao"):
     bairro = st.text_input("Bairro")
 
     st.subheader("Documentos Obrigatórios")
-    cpf_file = st.file_uploader("CPF (PDF/JPG/PNG) *", type=["pdf", "jpg", "png"])
-    rg_file = st.file_uploader("RG (PDF/JPG/PNG) *", type=["pdf", "jpg", "png"])
-    ctps_file = st.file_uploader("Carteira de Trabalho (PDF/JPG/PNG) *", type=["pdf", "jpg", "png"])
+    cpf_file = st.file_uploader(
+        "CPF (PDF / JPG / PNG) *",
+        type=["pdf", "jpg", "png"]
+    )
+    rg_file = st.file_uploader(
+        "RG (PDF / JPG / PNG) *",
+        type=["pdf", "jpg", "png"]
+    )
+    ctps_file = st.file_uploader(
+        "Carteira de Trabalho (PDF / JPG / PNG) *",
+        type=["pdf", "jpg", "png"]
+    )
 
     enviar = st.form_submit_button("📨 Enviar Admissão")
 
@@ -79,12 +90,12 @@ if enviar:
         st.stop()
 
     # -------------------------------
-    # CRIA DATAFRAME
+    # DATAFRAME
     # -------------------------------
     dados = {
         "Nome Completo": nome,
         "CPF": cpf,
-        "Data Nascimento": data_nasc.strftime("%d/%m/%Y"),
+        "Data de Nascimento": data_nasc.strftime("%d/%m/%Y"),
         "Sexo": sexo,
         "Estado Civil": estado_civil,
         "E-mail": email_pessoal,
@@ -93,32 +104,41 @@ if enviar:
         "Logradouro": logradouro,
         "Número": numero,
         "Bairro": bairro,
-        "Data Envio": datetime.now().strftime("%d/%m/%Y %H:%M")
+        "Data de Envio": datetime.now().strftime("%d/%m/%Y %H:%M")
     }
 
     df = pd.DataFrame([dados])
 
     # -------------------------------
-    # GERA EXCEL EM MEMÓRIA
+    # EXCEL EM MEMÓRIA
     # -------------------------------
     excel_buffer = BytesIO()
     df.to_excel(excel_buffer, index=False)
     excel_bytes = excel_buffer.getvalue()
 
     # -------------------------------
-    # CRIA ZIP EM MEMÓRIA (BINÁRIO)
+    # ZIP EM MEMÓRIA (PRESERVANDO EXTENSÃO)
     # -------------------------------
     zip_buffer = BytesIO()
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-        zipf.writestr("Documentos/CPF.pdf", cpf_file.getvalue())
-        zipf.writestr("Documentos/RG.pdf", rg_file.getvalue())
-        zipf.writestr("Documentos/CTPS.pdf", ctps_file.getvalue())
+        zipf.writestr(
+            f"Documentos/CPF_{cpf_file.name}",
+            cpf_file.getvalue()
+        )
+        zipf.writestr(
+            f"Documentos/RG_{rg_file.name}",
+            rg_file.getvalue()
+        )
+        zipf.writestr(
+            f"Documentos/CTPS_{ctps_file.name}",
+            ctps_file.getvalue()
+        )
 
     zip_bytes = zip_buffer.getvalue()
 
     # -------------------------------
-    # ENVIO DE EMAIL
+    # EMAIL
     # -------------------------------
     assunto = f"Nova Admissão Polachini – {nome}"
 
@@ -139,8 +159,16 @@ Sistema de Admissão – Futto RH
 """
 
     anexos = [
-        ("Dados_Admissao.xlsx", excel_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-        ("Documentacao.zip", zip_bytes, "application/zip")
+        (
+            f"Dados_Admissao_{nome}.xlsx",
+            excel_bytes,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        (
+            f"Documentacao_{nome}.zip",
+            zip_bytes,
+            "application/zip"
+        )
     ]
 
     enviar_email(
