@@ -2,14 +2,19 @@ import streamlit as st
 import pandas as pd
 import smtplib
 import zipfile
+import requests
 from email.message import EmailMessage
-from datetime import datetime
+from datetime import datetime, date
 from io import BytesIO
 
 # ===============================
 # CONFIGURAÇÃO
 # ===============================
-st.set_page_config(page_title="Formulário de Admissão", layout="centered")
+st.set_page_config(
+    page_title="Formulário de Admissão",
+    layout="centered"
+)
+
 st.title("📋 Formulário de Admissão")
 
 # ===============================
@@ -24,11 +29,42 @@ def enviar_email(destinatario, assunto, corpo, anexos):
 
     for nome, conteudo, mime in anexos:
         tipo, subtipo = mime.split("/")
-        msg.add_attachment(conteudo, maintype=tipo, subtype=subtipo, filename=nome)
+        msg.add_attachment(
+            conteudo,
+            maintype=tipo,
+            subtype=subtipo,
+            filename=nome
+        )
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(st.secrets["SMTP_USER"], st.secrets["SMTP_PASS"])
+        server.login(
+            st.secrets["SMTP_USER"],
+            st.secrets["SMTP_PASS"]
+        )
         server.send_message(msg)
+
+# ===============================
+# FUNÇÃO VIA CEP
+# ===============================
+def buscar_endereco_por_cep(cep):
+    cep = cep.replace("-", "").strip()
+
+    if len(cep) != 8 or not cep.isdigit():
+        return None
+
+    try:
+        r = requests.get(
+            f"https://viacep.com.br/ws/{cep}/json/",
+            timeout=5
+        )
+        if r.status_code == 200:
+            data = r.json()
+            if "erro" not in data:
+                return data
+    except:
+        pass
+
+    return None
 
 # ===============================
 # DADOS DO COLABORADOR
@@ -37,8 +73,16 @@ st.subheader("👤 Dados do Colaborador")
 
 nome = st.text_input("Nome Completo *")
 cpf = st.text_input("CPF *")
-data_nasc = st.date_input("Data de Nascimento *")
+
+data_nasc = st.date_input(
+    "Data de Nascimento *",
+    format="DD/MM/YYYY",
+    min_value=date(1900, 1, 1),
+    max_value=date.today()
+)
+
 sexo = st.selectbox("Sexo *", ["Masculino", "Feminino", "Outro"])
+
 estado_civil = st.selectbox(
     "Estado Civil *",
     ["Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)"]
@@ -46,6 +90,7 @@ estado_civil = st.selectbox(
 
 pais_nascimento = st.text_input("País de Nascimento")
 nacionalidade = st.text_input("Nacionalidade")
+
 raca_cor = st.selectbox(
     "Raça/Cor",
     ["Branca", "Preta", "Parda", "Amarela", "Indígena", "Não informado"]
@@ -55,14 +100,25 @@ filiacao1 = st.text_input("Filiação 1 *")
 filiacao2 = st.text_input("Filiação 2")
 
 # ===============================
-# ENDEREÇO
+# ENDEREÇO (CEP AUTOMÁTICO)
 # ===============================
 st.subheader("🏠 Endereço")
 
-cep = st.text_input("CEP")
-logradouro = st.text_input("Logradouro")
+cep = st.text_input("CEP", max_chars=9)
+
+endereco = buscar_endereco_por_cep(cep) if len(cep.replace("-", "")) == 8 else None
+
+logradouro = st.text_input(
+    "Logradouro",
+    value=endereco["logradouro"] if endereco else ""
+)
+
+bairro = st.text_input(
+    "Bairro",
+    value=endereco["bairro"] if endereco else ""
+)
+
 numero = st.text_input("Número")
-bairro = st.text_input("Bairro")
 
 # ===============================
 # CONTATO
@@ -101,19 +157,33 @@ possui_dependentes = st.checkbox("Possui dependentes?")
 dependentes = []
 
 if possui_dependentes:
-    qtd_dep = st.number_input("Quantidade de dependentes", 1, 5, 1)
+    qtd_dep = st.number_input(
+        "Quantidade de dependentes",
+        min_value=1,
+        max_value=5,
+        step=1
+    )
 
     for i in range(int(qtd_dep)):
         st.markdown(f"### Dependente {i+1}")
 
         dep_nome = st.text_input("Nome", key=f"dep_nome_{i}")
         dep_cpf = st.text_input("CPF", key=f"dep_cpf_{i}")
-        dep_data = st.date_input("Data de Nascimento", key=f"dep_data_{i}")
+
+        dep_data = st.date_input(
+            "Data de Nascimento",
+            format="DD/MM/YYYY",
+            min_value=date(1900, 1, 1),
+            max_value=date.today(),
+            key=f"dep_data_{i}"
+        )
+
         dep_sexo = st.selectbox(
             "Sexo",
             ["Masculino", "Feminino", "Outro"],
             key=f"dep_sexo_{i}"
         )
+
         dep_parentesco = st.text_input("Parentesco", key=f"dep_parentesco_{i}")
         dep_filiacao = st.text_input("Filiação", key=f"dep_filiacao_{i}")
 
@@ -129,7 +199,7 @@ if possui_dependentes:
         dependentes.append({
             "Nome": dep_nome,
             "CPF": dep_cpf,
-            "Data Nascimento": dep_data.strftime("%d/%m/%Y"),
+            "Nascimento": dep_data.strftime("%d/%m/%Y"),
             "Sexo": dep_sexo,
             "Parentesco": dep_parentesco,
             "Filiação": dep_filiacao,
@@ -155,7 +225,7 @@ if enviar:
     df_colab = pd.DataFrame([{
         "Nome": nome,
         "CPF": cpf,
-        "Nascimento": data_nasc.strftime("%d/%m/%Y"),
+        "Data Nascimento": data_nasc.strftime("%d/%m/%Y"),
         "Sexo": sexo,
         "Estado Civil": estado_civil,
         "País Nascimento": pais_nascimento,
@@ -180,14 +250,16 @@ if enviar:
     df_dep = pd.DataFrame(dependentes) if dependentes else pd.DataFrame()
 
     # -------------------------------
-    # EXCEL (openpyxl automático)
+    # EXCEL
     # -------------------------------
     excel_buffer = BytesIO()
     with pd.ExcelWriter(excel_buffer) as writer:
         df_colab.to_excel(writer, index=False, sheet_name="Colaborador")
         if not df_dep.empty:
             df_dep.drop(columns=["Arquivo"]).to_excel(
-                writer, index=False, sheet_name="Dependentes"
+                writer,
+                index=False,
+                sheet_name="Dependentes"
             )
 
     excel_bytes = excel_buffer.getvalue()
