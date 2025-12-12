@@ -46,38 +46,83 @@ def enviar_email(destinatario, assunto, corpo, anexos):
 # FORMULÁRIO
 # ===============================
 with st.form("form_admissao"):
-    st.subheader("Dados Pessoais")
+    st.subheader("👤 Dados Pessoais")
 
     nome = st.text_input("Nome Completo *")
-    cpf = st.text_input("CPF * (somente números)")
+    cpf = st.text_input("CPF *")
     data_nasc = st.date_input("Data de Nascimento *")
-    sexo = st.selectbox("Sexo *", ["", "Masculino", "Feminino", "Outro"])
+    sexo = st.selectbox("Sexo *", ["Masculino", "Feminino", "Outro"])
     estado_civil = st.selectbox(
         "Estado Civil *",
-        ["", "Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)"]
+        ["Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)"]
     )
-    email_pessoal = st.text_input("E-mail Pessoal *")
-    celular = st.text_input("Celular *")
+    pais_nascimento = st.text_input("País de Nascimento")
+    nacionalidade = st.text_input("Nacionalidade")
+    raca_cor = st.selectbox(
+        "Raça/Cor",
+        ["Branca", "Preta", "Parda", "Amarela", "Indígena", "Não informado"]
+    )
 
-    st.subheader("Endereço")
+    filiacao1 = st.text_input("Filiação 1 *")
+    filiacao2 = st.text_input("Filiação 2 (opcional)")
+
+    st.subheader("🏠 Endereço")
     cep = st.text_input("CEP")
     logradouro = st.text_input("Logradouro")
     numero = st.text_input("Número")
     bairro = st.text_input("Bairro")
 
-    st.subheader("Documentos Obrigatórios")
-    cpf_file = st.file_uploader(
-        "CPF (PDF / JPG / PNG) *",
-        type=["pdf", "jpg", "png"]
-    )
-    rg_file = st.file_uploader(
-        "RG (PDF / JPG / PNG) *",
-        type=["pdf", "jpg", "png"]
-    )
-    ctps_file = st.file_uploader(
-        "Carteira de Trabalho (PDF / JPG / PNG) *",
-        type=["pdf", "jpg", "png"]
-    )
+    st.subheader("📞 Contato")
+    celular = st.text_input("Celular *")
+    email_pessoal = st.text_input("E-mail Pessoal *")
+
+    st.subheader("🏦 Dados Bancários")
+    banco = st.text_input("Banco")
+    tipo_conta = st.selectbox("Tipo de Conta", ["Corrente", "Poupança"])
+    agencia = st.text_input("Agência")
+    conta = st.text_input("Conta")
+    chave_pix = st.text_input("Chave Pix")
+
+    st.subheader("📄 Documentos Obrigatórios")
+    cpf_file = st.file_uploader("CPF *", type=["pdf", "jpg", "png"])
+    rg_file = st.file_uploader("RG *", type=["pdf", "jpg", "png"])
+    ctps_file = st.file_uploader("Carteira de Trabalho *", type=["pdf", "jpg", "png"])
+
+    st.subheader("👶 Dependentes (opcional)")
+    possui_dependentes = st.checkbox("Possui dependentes?")
+
+    dependentes = []
+    if possui_dependentes:
+        qtd_dep = st.number_input(
+            "Quantidade de dependentes",
+            min_value=1,
+            max_value=5,
+            step=1
+        )
+
+        for i in range(qtd_dep):
+            st.markdown(f"**Dependente {i+1}**")
+            dep_nome = st.text_input(f"Nome do Dependente {i+1}")
+            dep_cpf = st.text_input(f"CPF do Dependente {i+1}")
+            dep_data = st.date_input(f"Data Nasc. Dependente {i+1}", key=f"data{i}")
+            dep_parentesco = st.text_input(f"Parentesco {i+1}")
+            dep_ir = st.checkbox(f"Entra no IR?", key=f"ir{i}")
+            dep_sf = st.checkbox(f"Salário Família?", key=f"sf{i}")
+            dep_doc = st.file_uploader(
+                f"Documento Dependente {i+1}",
+                type=["pdf", "jpg", "png"],
+                key=f"doc{i}"
+            )
+
+            dependentes.append({
+                "Nome": dep_nome,
+                "CPF": dep_cpf,
+                "Data Nasc": dep_data.strftime("%d/%m/%Y"),
+                "Parentesco": dep_parentesco,
+                "IR": dep_ir,
+                "Salário Família": dep_sf,
+                "Arquivo": dep_doc
+            })
 
     enviar = st.form_submit_button("📨 Enviar Admissão")
 
@@ -85,55 +130,72 @@ with st.form("form_admissao"):
 # PROCESSAMENTO
 # ===============================
 if enviar:
-    if not all([nome, cpf, email_pessoal, celular, cpf_file, rg_file, ctps_file]):
+    if not all([nome, cpf, celular, email_pessoal, cpf_file, rg_file, ctps_file, filiacao1]):
         st.error("❌ Preencha todos os campos obrigatórios.")
         st.stop()
 
     # -------------------------------
-    # DATAFRAME
+    # DATAFRAME PRINCIPAL
     # -------------------------------
     dados = {
-        "Nome Completo": nome,
+        "Nome": nome,
         "CPF": cpf,
-        "Data de Nascimento": data_nasc.strftime("%d/%m/%Y"),
+        "Nascimento": data_nasc.strftime("%d/%m/%Y"),
         "Sexo": sexo,
         "Estado Civil": estado_civil,
-        "E-mail": email_pessoal,
-        "Celular": celular,
+        "País Nascimento": pais_nascimento,
+        "Nacionalidade": nacionalidade,
+        "Raça/Cor": raca_cor,
+        "Filiação 1": filiacao1,
+        "Filiação 2": filiacao2,
         "CEP": cep,
         "Logradouro": logradouro,
         "Número": numero,
         "Bairro": bairro,
-        "Data de Envio": datetime.now().strftime("%d/%m/%Y %H:%M")
+        "Celular": celular,
+        "E-mail": email_pessoal,
+        "Banco": banco,
+        "Tipo Conta": tipo_conta,
+        "Agência": agencia,
+        "Conta": conta,
+        "Pix": chave_pix,
+        "Data Envio": datetime.now().strftime("%d/%m/%Y %H:%M")
     }
 
-    df = pd.DataFrame([dados])
+    df_principal = pd.DataFrame([dados])
+
+    df_dependentes = pd.DataFrame(dependentes) if dependentes else pd.DataFrame()
 
     # -------------------------------
-    # EXCEL EM MEMÓRIA
+    # EXCEL
     # -------------------------------
     excel_buffer = BytesIO()
-    df.to_excel(excel_buffer, index=False)
+    with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+        df_principal.to_excel(writer, index=False, sheet_name="Colaborador")
+        if not df_dependentes.empty:
+            df_dependentes.drop(columns=["Arquivo"]).to_excel(
+                writer,
+                index=False,
+                sheet_name="Dependentes"
+            )
+
     excel_bytes = excel_buffer.getvalue()
 
     # -------------------------------
-    # ZIP EM MEMÓRIA (PRESERVANDO EXTENSÃO)
+    # ZIP (PRESERVANDO EXTENSÃO)
     # -------------------------------
     zip_buffer = BytesIO()
-
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
-        zipf.writestr(
-            f"Documentos/CPF_{cpf_file.name}",
-            cpf_file.getvalue()
-        )
-        zipf.writestr(
-            f"Documentos/RG_{rg_file.name}",
-            rg_file.getvalue()
-        )
-        zipf.writestr(
-            f"Documentos/CTPS_{ctps_file.name}",
-            ctps_file.getvalue()
-        )
+        zipf.writestr(f"Documentos/CPF_{cpf_file.name}", cpf_file.getvalue())
+        zipf.writestr(f"Documentos/RG_{rg_file.name}", rg_file.getvalue())
+        zipf.writestr(f"Documentos/CTPS_{ctps_file.name}", ctps_file.getvalue())
+
+        for i, dep in enumerate(dependentes):
+            if dep["Arquivo"]:
+                zipf.writestr(
+                    f"Documentos/Dependente_{i+1}_{dep['Arquivo'].name}",
+                    dep["Arquivo"].getvalue()
+                )
 
     zip_bytes = zip_buffer.getvalue()
 
@@ -145,30 +207,22 @@ if enviar:
     corpo = f"""
 Olá,
 
-Uma nova admissão foi enviada pelo formulário.
+Uma nova admissão foi enviada.
 
-Nome: {nome}
+Colaborador: {nome}
 CPF: {cpf}
 
 Em anexo:
-- Planilha com os dados preenchidos
-- Documentação do colaborador (ZIP)
+- Excel com dados completos
+- ZIP com toda a documentação
 
-Atenciosamente,
 Sistema de Admissão – Futto RH
 """
 
     anexos = [
-        (
-            f"Dados_Admissao_{nome}.xlsx",
-            excel_bytes,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ),
-        (
-            f"Documentacao_{nome}.zip",
-            zip_bytes,
-            "application/zip"
-        )
+        ("Dados_Admissao.xlsx", excel_bytes,
+         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        ("Documentacao.zip", zip_bytes, "application/zip")
     ]
 
     enviar_email(
@@ -178,4 +232,4 @@ Sistema de Admissão – Futto RH
         anexos=anexos
     )
 
-    st.success("✅ Admissão enviada com sucesso! E-mail disparado.")
+    st.success("✅ Admissão enviada com sucesso!")
